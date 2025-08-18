@@ -14,7 +14,7 @@ function makeStream() {
   return { stream: ts.readable, writer, send };
 }
 
-// --- ERP HELPERS (unchanged logic, but we'll emit progress) ---
+// --- ERP HELPERS ---
 async function erpApiCall(path, params, sid) {
   const url = `https://erp.vidyaacademy.ac.in/web${path}`;
   const payload = { jsonrpc: "2.0", method: "call", params };
@@ -249,67 +249,80 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
 
   let completed = 0;
   for (const record of feedbackRecords) {
-    const { id: feedbackId, employeename, course } = record;
-    const courseName = Array.isArray(course) ? course[1] : "";
-    const line = `   -> Submitting for ${employeename} (${courseName})... `;
-    logs.push(line);
+    try {
+      const { id: feedbackId, employeename, course } = record;
+      const courseName = Array.isArray(course) ? course[1] : "";
+      logs.push(`   -> Submitting for ${employeename} (${courseName})...`);
 
-    const formDetails = await erpApiCall(
-      "/dataset/call_kw",
-      {
-        model,
-        method: "read",
-        args: [[feedbackId], ["questions_line"]],
-        kwargs: { context: kwArgsContext },
-        session_id,
-        context: topLevelContext,
-      },
-      sid
-    );
+      const formDetails = await erpApiCall(
+        "/dataset/call_kw",
+        {
+          model,
+          method: "read",
+          args: [[feedbackId], ["questions_line"]],
+          kwargs: { context: kwArgsContext },
+          session_id,
+          context: topLevelContext,
+        },
+        sid
+      );
 
-    const questionIds = formDetails[0].questions_line;
-    const answersPayload = questionIds.map((qid) => [
-      1,
-      qid,
-      { mark_state: 1 },
-    ]);
+      const questionIds = formDetails[0]?.questions_line || [];
+      const answersPayload = questionIds.map((qid) => [
+        1,
+        qid,
+        { mark_state: 1 },
+      ]);
 
-    await erpApiCall(
-      "/dataset/call_kw",
-      {
-        model,
-        method: "write",
-        args: [[feedbackId], { questions_line: answersPayload }],
-        kwargs: { context: kwArgsContext },
-        session_id,
-        context: topLevelContext,
-      },
-      sid
-    );
+      if (answersPayload.length > 0) {
+        await erpApiCall(
+          "/dataset/call_kw",
+          {
+            model,
+            method: "write",
+            args: [[feedbackId], { questions_line: answersPayload }],
+            kwargs: { context: kwArgsContext },
+            session_id,
+            context: topLevelContext,
+          },
+          sid
+        );
+      }
 
-    await erpApiCall(
-      "/dataset/call_button",
-      {
-        model,
-        method: "button_submit",
-        args: [[feedbackId], kwArgsContext],
-        session_id,
-        context: topLevelContext,
-      },
-      sid
-    );
+      await erpApiCall(
+        "/dataset/call_button",
+        {
+          model,
+          method: "button_submit",
+          args: [[feedbackId], kwArgsContext],
+          session_id,
+          context: topLevelContext,
+        },
+        sid
+      );
 
-    completed += 1;
-    logs[logs.length - 1] += "Done.";
-    const percent = Math.round((completed / feedbackRecords.length) * 100);
-    await emit({
-      type: "status",
-      step: "submit",
-      progress: percent,
-      total: feedbackRecords.length,
-      completed,
-      message: `Submitted ${employeename} (${courseName})`,
-    });
+      completed += 1;
+      logs[logs.length - 1] += " Done.";
+      const percent = Math.round((completed / feedbackRecords.length) * 100);
+      await emit({
+        type: "status",
+        step: "submit",
+        progress: percent,
+        total: feedbackRecords.length,
+        completed,
+        message: `Submitted ${employeename} (${courseName})`,
+      });
+    } catch (err) {
+      logs.push(
+        `   -> Error submitting for ${record.employeename}: ${err.message}`
+      );
+      await emit({
+        type: "status",
+        step: "submit",
+        message: `Error with ${record.employeename}: ${err.message}`,
+      });
+      // continue to next form
+    }
   }
 
   logs.push(" All feedback submitted successfully!");
@@ -331,9 +344,7 @@ export async function POST(request) {
   if (!username || !password) {
     return new Response(
       JSON.stringify({ error: "Username and password are required." }),
-      {
-        status: 400,
-      }
+      { status: 400 }
     );
   }
 
@@ -358,11 +369,10 @@ export async function POST(request) {
       });
 
       const emit = async (evt) => {
-        // mirror incoming messages as logs too, if provided
         if (evt.message) {
           await send({ type: "log", message: evt.message });
         }
-        await send({ ...evt, message: evt.message }); // status events
+        await send({ ...evt, message: evt.message });
       };
 
       await automateFeedback(
