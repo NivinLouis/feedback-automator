@@ -15,6 +15,7 @@ import {
   Loader2,
   CheckCircle2,
   Circle,
+  Github,
 } from "lucide-react";
 
 const INITIAL_STEPS = [
@@ -172,90 +173,107 @@ export default function HomePage() {
   };
 
   return (
-    <main className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4">
-      <Card className="w-full max-w-2xl shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl">
-            Vidya Feedback Automator
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2">
-          {/* Left: Form + Steps */}
-          <div className="space-y-4">
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <Input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="ERP Username"
-                required
-              />
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="ERP Password"
-                required
-              />
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Automating...
-                  </>
-                ) : (
-                  "Start Automation"
-                )}
-              </Button>
-            </form>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex flex-col">
+      <main className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4">
+        <Card className="w-full max-w-2xl shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-center text-2xl">
+              Vidya Feedback Automator
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-6 md:grid-cols-2">
+            {/* Left: Form + Steps */}
+            <div className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <Input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="ERP Username"
+                  required
+                />
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="ERP Password"
+                  required
+                />
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Automating...
+                    </>
+                  ) : (
+                    "Start Automation"
+                  )}
+                </Button>
+              </form>
 
-            {/* Steps */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Progress</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {steps.map((s) => (
-                  <StepRow
-                    key={s.key}
-                    label={s.label}
-                    progress={s.progress}
-                    detail={s.detail}
-                  />
-                ))}
-              </CardContent>
-            </Card>
+              {/* Steps */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Progress</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {steps.map((s) => (
+                    <StepRow
+                      key={s.key}
+                      label={s.label}
+                      progress={s.progress}
+                      detail={s.detail}
+                    />
+                  ))}
+                </CardContent>
+              </Card>
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-          </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+            </div>
 
-          {/* Right: Logs */}
-          <div>
-            <Card className="bg-gray-900 text-gray-100 h-full">
-              <CardHeader className="flex flex-row items-center space-x-2 pb-2">
-                <Terminal className="h-4 w-4" />
-                <CardTitle className="text-gray-200 text-base">
-                  Automation Log
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-80 text-sm font-mono" ref={logRef}>
-                  <pre className="whitespace-pre-wrap break-words leading-6">
-                    {logs.join("\n")}
-                  </pre>
-                  <div ref={endOfLogsRef} />
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-        </CardContent>
-      </Card>
-    </main>
+            {/* Right: Logs */}
+            <div>
+              <Card className="bg-gray-900 text-gray-100 h-full">
+                <CardHeader className="flex flex-row items-center space-x-2 pb-2">
+                  <Terminal className="h-4 w-4" />
+                  <CardTitle className="text-gray-200 text-base">
+                    Automation Log
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-80 text-sm font-mono" ref={logRef}>
+                    <pre className="whitespace-pre-wrap break-words leading-6">
+                      {logs.join("\n")}
+                    </pre>
+                    <div ref={endOfLogsRef} />
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+      </main>
+      <footer className="py-3 flex justify-center">
+        <Button
+          variant="outline"
+          onClick={() =>
+            window.open(
+              "https://github.com/NivinLouis/feedback-automator",
+              "_blank"
+            )
+          }
+          className="flex items-center gap-2"
+        >
+          <Github className="h-4 w-4" />
+          View on GitHub
+        </Button>
+      </footer>
+    </div>
   );
 }
