@@ -1,103 +1,261 @@
-import Image from "next/image";
+// File: src/app/page.js
 
-export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+"use client";
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import {
+  Terminal,
+  AlertCircle,
+  Loader2,
+  CheckCircle2,
+  Circle,
+} from "lucide-react";
+
+const INITIAL_STEPS = [
+  { key: "login", label: "Login", progress: 0, detail: "" },
+  { key: "batch", label: "Fetch Batch", progress: 0, detail: "" },
+  { key: "semester", label: "Fetch Semester", progress: 0, detail: "" },
+  { key: "config", label: "Fetch Config", progress: 0, detail: "" },
+  { key: "pending", label: "Find Pending Forms", progress: 0, detail: "" },
+  {
+    key: "submit",
+    label: "Submit Feedback",
+    progress: 0,
+    detail: "0/0",
+    total: 0,
+    completed: 0,
+  },
+];
+
+export default function HomePage() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [error, setError] = useState("");
+  const [steps, setSteps] = useState(INITIAL_STEPS);
+  const readerRef = useRef(null);
+
+  const logRef = useRef(null);
+  const endOfLogsRef = useRef(null);
+
+  useEffect(() => {
+    if (endOfLogsRef.current) {
+      endOfLogsRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [logs]);
+  const resetUI = () => {
+    setLogs([]);
+    setError("");
+    setSteps(INITIAL_STEPS.map((s) => ({ ...s })));
+  };
+
+  const updateStep = (evt) => {
+    setSteps((prev) =>
+      prev.map((s) =>
+        s.key === evt.step
+          ? {
+              ...s,
+              progress:
+                typeof evt.progress === "number" ? evt.progress : s.progress,
+              detail:
+                evt.step === "submit" &&
+                evt.total != null &&
+                evt.completed != null
+                  ? `${evt.completed}/${evt.total}`
+                  : evt.message ?? s.detail,
+              total: evt.total ?? s.total,
+              completed: evt.completed ?? s.completed,
+            }
+          : s
+      )
+    );
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    resetUI();
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/automate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.body) {
+        throw new Error("Streaming not supported by the browser/environment.");
+      }
+
+      const reader = response.body.getReader();
+      readerRef.current = reader;
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let evt;
+          try {
+            evt = JSON.parse(line);
+          } catch {
+            continue;
+          }
+
+          if (evt.type === "status") {
+            updateStep(evt);
+            if (evt.message) {
+              setLogs((l) => [...l, evt.message]);
+            }
+          } else if (evt.type === "log") {
+            setLogs((l) => [...l, evt.message]);
+          } else if (evt.type === "error") {
+            setError(evt.message || "Unknown error");
+            setIsLoading(false);
+          } else if (evt.type === "done") {
+            if (Array.isArray(evt.logs)) setLogs(evt.logs);
+            setIsLoading(false);
+          }
+        }
+      }
+    } catch (err) {
+      setError(err.message || "Failed to connect to the server.");
+      setIsLoading(false);
+    } finally {
+      try {
+        await readerRef.current?.cancel();
+      } catch {}
+    }
+  };
+
+  const StepRow = ({ label, progress, detail }) => {
+    const statusIcon =
+      progress >= 100 ? (
+        <CheckCircle2 className="h-4 w-4" />
+      ) : progress > 0 ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Circle className="h-4 w-4" />
+      );
+
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            {statusIcon}
+            <span className="font-medium">{label}</span>
+          </div>
+          <span className="text-xs tabular-nums">
+            {Math.min(progress, 100)}%
+          </span>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        <Progress value={Math.min(progress, 100)} />
+        {detail ? (
+          <div className="text-xs text-muted-foreground">{detail}</div>
+        ) : null}
+      </div>
+    );
+  };
+
+  return (
+    <main className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4">
+      <Card className="w-full max-w-2xl shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-center text-2xl">
+            Vidya Feedback Automator
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-2">
+          {/* Left: Form + Steps */}
+          <div className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <Input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="ERP Username"
+                required
+              />
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="ERP Password"
+                required
+              />
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Automating...
+                  </>
+                ) : (
+                  "Start Automation"
+                )}
+              </Button>
+            </form>
+
+            {/* Steps */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Progress</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {steps.map((s) => (
+                  <StepRow
+                    key={s.key}
+                    label={s.label}
+                    progress={s.progress}
+                    detail={s.detail}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          {/* Right: Logs */}
+          <div>
+            <Card className="bg-gray-900 text-gray-100 h-full">
+              <CardHeader className="flex flex-row items-center space-x-2 pb-2">
+                <Terminal className="h-4 w-4" />
+                <CardTitle className="text-gray-200 text-base">
+                  Automation Log
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-80 text-sm font-mono" ref={logRef}>
+                  <pre className="whitespace-pre-wrap break-words leading-6">
+                    {logs.join("\n")}
+                  </pre>
+                  <div ref={endOfLogsRef} />
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 }
