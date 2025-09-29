@@ -1,13 +1,8 @@
-// File: src/app/page.js
-
 "use client";
-
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import {
   Terminal,
@@ -16,6 +11,7 @@ import {
   CheckCircle2,
   Circle,
   Github,
+  Sparkles,
 } from "lucide-react";
 
 const INITIAL_STEPS = [
@@ -51,6 +47,7 @@ export default function HomePage() {
       endOfLogsRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [logs]);
+
   const resetUI = () => {
     setLogs([]);
     setError("");
@@ -146,134 +143,275 @@ export default function HomePage() {
   const StepRow = ({ label, progress, detail }) => {
     const statusIcon =
       progress >= 100 ? (
-        <CheckCircle2 className="h-4 w-4" />
+        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
       ) : progress > 0 ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
       ) : (
-        <Circle className="h-4 w-4" />
+        <Circle className="h-4 w-4 text-gray-400" />
       );
 
     return (
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm">
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2">
             {statusIcon}
-            <span className="font-medium">{label}</span>
+            <span className="font-medium text-gray-900">{label}</span>
           </div>
-          <span className="text-xs tabular-nums">
-            {Math.min(progress, 100)}%
-          </span>
+          <div className="flex items-center gap-2">
+            {detail && <span className="text-xs text-gray-600">{detail}</span>}
+            <span className="text-xs tabular-nums font-semibold text-gray-600">
+              {Math.min(progress, 100)}%
+            </span>
+          </div>
         </div>
-        <Progress value={Math.min(progress, 100)} />
-        {detail ? (
-          <div className="text-xs text-muted-foreground">{detail}</div>
-        ) : null}
+        <div className="relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#d66d75] to-[#e29587] transition-all duration-500"
+            style={{ width: `${Math.min(progress, 100)}%` }}
+          ></div>
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex flex-col">
-      <main className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4">
-        <Card className="w-full max-w-2xl shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-center text-2xl">
-              Vidya Feedback Automator
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-6 md:grid-cols-2">
-            {/* Left: Form + Steps */}
-            <div className="space-y-4">
-              <form onSubmit={handleSubmit} className="space-y-3">
-                <Input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="ERP Username"
-                  required
-                />
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="ERP Password"
-                  required
-                />
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Automating...
-                    </>
-                  ) : (
-                    "Start Automation"
-                  )}
-                </Button>
-              </form>
+    <div className="min-h-screen relative overflow-hidden">
+      <div className="absolute inset-0 bg-gray-50">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(59, 130, 246, 0.1) 1px, transparent 1px)
+            `,
+            backgroundSize: "20px 20px",
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, rgba(59, 130, 246, 0.2) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(59, 130, 246, 0.2) 1px, transparent 1px)
+            `,
+            backgroundSize: "100px 100px",
+          }}
+        />
+        <div className="absolute inset-0 opacity-[0.15]">
+          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <pattern
+              id="blueprint-marks"
+              x="0"
+              y="0"
+              width="100"
+              height="100"
+              patternUnits="userSpaceOnUse"
+            >
+              <text x="5" y="10" className="text-[6px] fill-blue-500">
+                100
+              </text>
+              <text x="105" y="10" className="text-[6px] fill-blue-500">
+                200
+              </text>
+              <text x="205" y="10" className="text-[6px] fill-blue-500">
+                300
+              </text>
 
-              {/* Steps */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Progress</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {steps.map((s) => (
-                    <StepRow
-                      key={s.key}
-                      label={s.label}
-                      progress={s.progress}
-                      detail={s.detail}
-                    />
-                  ))}
-                </CardContent>
-              </Card>
+              <text x="2" y="105" className="text-[6px] fill-blue-500">
+                100
+              </text>
+              <text x="2" y="205" className="text-[6px] fill-blue-500">
+                200
+              </text>
+              <text x="2" y="305" className="text-[6px] fill-blue-500">
+                300
+              </text>
 
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+              <circle cx="100" cy="100" r="2" className="fill-blue-500/30" />
+              <circle cx="200" cy="200" r="2" className="fill-blue-500/30" />
+              <circle cx="300" cy="300" r="2" className="fill-blue-500/30" />
+            </pattern>
+            <rect width="100%" height="100%" fill="url(#blueprint-marks)" />
+          </svg>
+        </div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(203,213,225,0.33),transparent_70%)]" />
+      </div>
+
+      <main className="relative flex items-center justify-center min-h-screen p-4">
+        <div className="w-full max-w-6xl">
+          {/* Main liquid glass card */}
+          <div className="relative">
+            {/* Glow effect */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-[2rem] opacity-20 blur-2xl transition-opacity duration-1000"></div>
+
+            <div className="relative backdrop-blur-2xl bg-white/30 rounded-[2rem] border border-white/20 shadow-xl overflow-hidden">
+              {/* Header */}
+              <div className="p-8">
+                <div className="flex flex-col items-center justify-center gap-3 text-center">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl blur-lg opacity-50"></div>
+                  </div>
+                  <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
+                    Vidya Feedback Automator
+                  </h1>
+                </div>
+              </div>
+
+              <div className="p-8">
+                <div className="grid gap-8 lg:grid-cols-2">
+                  {/* Left: Form + Steps */}
+                  <div className="space-y-6">
+                    {/* Login Form */}
+                    <div className="relative">
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl opacity-0 blur transition-opacity duration-500"></div>
+                      <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <div className="h-2 w-2 bg-emerald-400 rounded-full animate-pulse shadow-lg shadow-emerald-400/30"></div>
+                          Login Credentials
+                        </h2>
+                        <div className="space-y-4">
+                          <div className="relative">
+                            <Input
+                              type="text"
+                              value={username}
+                              onChange={(e) => setUsername(e.target.value)}
+                              placeholder="ERP Username"
+                              className="backdrop-blur-sm bg-white/30 border-white/20 text-gray-900 placeholder:text-gray-500 focus:bg-white/40 focus:border-white/30 transition-all"
+                            />
+                          </div>
+                          <div className="relative">
+                            <Input
+                              type="password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              placeholder="ERP Password"
+                              className="backdrop-blur-sm bg-white/30 border-white/20 text-gray-900 placeholder:text-gray-500 focus:bg-white/40 focus:border-white/30 transition-all"
+                            />
+                          </div>
+                          <Button
+                            onClick={handleSubmit}
+                            className="relative w-full bg-gradient-to-r from-[#d66d75] to-[#e29587] hover:from-[#d66d75]/90 hover:to-[#e29587]/90 text-white overflow-hidden rounded-lg"
+                            disabled={isLoading}
+                          >
+                            {/* Shimmer overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+
+                            {isLoading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Automating...
+                              </>
+                            ) : (
+                              <>Start Automation</>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress Steps */}
+                    <div className="relative">
+                      <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl opacity-0 blur transition-opacity duration-500"></div>
+                      <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <div className="h-2 w-2 bg-blue-400 rounded-full animate-pulse shadow-lg shadow-blue-400/30"></div>
+                          Progress Tracker
+                        </h2>
+                        <div className="space-y-3">
+                          {steps.map((s) => (
+                            <StepRow
+                              key={s.key}
+                              label={s.label}
+                              progress={s.progress}
+                              detail={s.detail}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Error Alert */}
+                    {error && (
+                      <div className="relative animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl opacity-20 blur"></div>
+                        <div className="relative backdrop-blur-xl bg-red-500/10 border border-red-500/30 rounded-2xl p-4 shadow-lg">
+                          <div className="flex gap-3">
+                            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <h3 className="font-semibold text-red-700 mb-1">
+                                Error Occurred
+                              </h3>
+                              <p className="text-sm text-red-600">{error}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Logs Terminal */}
+                  <div className="relative">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-2xl opacity-0 blur transition-opacity duration-500"></div>
+                    <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg overflow-hidden">
+                      <div className="backdrop-blur-xl bg-white/30 border-b border-white/20 px-6 py-4 flex items-center gap-3">
+                        <Terminal className="h-5 w-5 text-emerald-400" />
+                        <h2 className="text-gray-900 font-semibold">
+                          Automation Log
+                        </h2>
+                        <div className="ml-auto flex gap-2">
+                          <div className="h-3 w-3 rounded-full bg-red-500 shadow-lg shadow-red-500/20"></div>
+                          <div className="h-3 w-3 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/20"></div>
+                          <div className="h-3 w-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/20"></div>
+                        </div>
+                      </div>
+                      <div className="p-6 bg-transparent">
+                        <ScrollArea className="h-[500px]" ref={logRef}>
+                          <pre className="text-sm font-mono text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
+                            {logs.length > 0 ? (
+                              logs.join("\n")
+                            ) : (
+                              <span className="text-gray-400">
+                                $ Waiting for automation to start...
+                              </span>
+                            )}
+                          </pre>
+                          <div ref={endOfLogsRef} />
+                        </ScrollArea>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
 
-            {/* Right: Logs */}
-            <div>
-              <Card className="bg-gray-900 text-gray-100 h-full">
-                <CardHeader className="flex flex-row items-center space-x-2 pb-2">
-                  <Terminal className="h-4 w-4" />
-                  <CardTitle className="text-gray-200 text-base">
-                    Automation Log
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-80 text-sm font-mono" ref={logRef}>
-                    <pre className="whitespace-pre-wrap break-words leading-6">
-                      {logs.join("\n")}
-                    </pre>
-                    <div ref={endOfLogsRef} />
-                  </ScrollArea>
-                </CardContent>
-              </Card>
+          {/* Footer */}
+          <div className="mt-8 flex justify-center">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-gray-600 to-gray-800 rounded-xl opacity-0 blur transition-opacity duration-300"></div>
+              <Button
+                onClick={() =>
+                  window.open(
+                    "https://github.com/NivinLouis/feedback-automator",
+                    "_blank"
+                  )
+                }
+                className="relative backdrop-blur-md bg-white/30 border border-white/20 text-gray-900 shadow-md hover:bg-white/40 transition-all transform hover:scale-105"
+              >
+                <Github className="h-4 w-4 mr-2" />
+                View on GitHub
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-6 flex justify-center">
+            <img
+              src="ondotfooter.png"
+              alt="App Logo"
+              className="h-12 w-auto opacity-80 hover:opacity-100 transition-opacity"
+            />
+          </div>
+        </div>
       </main>
-      <footer className="py-3 flex justify-center">
-        <Button
-          variant="outline"
-          onClick={() =>
-            window.open(
-              "https://github.com/NivinLouis/feedback-automator",
-              "_blank"
-            )
-          }
-          className="flex items-center gap-2"
-        >
-          <Github className="h-4 w-4" />
-          View on GitHub
-        </Button>
-      </footer>
     </div>
   );
 }
