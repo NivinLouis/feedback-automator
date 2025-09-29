@@ -175,15 +175,33 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
     },
     sid
   );
-  const configId = configResult[0].config_id[0];
-  logs.push(`    Found config ID: ${configId}`);
+
+  // ✅ NEW LOGIC STARTS HERE
+  // Handle cases where no feedback configurations are returned
+  if (!configResult || configResult.length === 0) {
+    throw new Error(
+      "No feedback configurations found for the latest semester."
+    );
+  }
+
+  // Use reduce to find the configuration with the highest ID
+  const latestConfig = configResult.reduce((latest, current) => {
+    // The ID is the first element (index 0) of the 'config_id' array
+    return current.config_id[0] > latest.config_id[0] ? current : latest;
+  });
+
+  // Extract the ID and name from the selected latest config
+  const configId = latestConfig.config_id[0];
+  const configName = latestConfig.config_id[1];
+
+  logs.push(`    Found latest config: ${configName} (ID: ${configId})`);
   await emit({
     type: "status",
     step: "config",
     progress: 100,
-    message: `Config ID: ${configId}`,
+    message: `Found: ${configName}`, // A more descriptive message for the UI
   });
-
+  // ✅ NEW LOGIC ENDS HERE
   // STEP 4: Pending feedbacks
   logs.push("4) Fetching all pending feedback forms...");
   await emit({
