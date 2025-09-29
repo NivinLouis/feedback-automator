@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "Vidya Feedback Automator",
-  description: "Developed <aikyam/>",
+  description: "Marks pending feedback forms as excellent automatically.",
 };
 
 export default function RootLayout({ children }) {
