@@ -176,7 +176,6 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
     sid
   );
 
-  // ✅ NEW LOGIC STARTS HERE
   // Handle cases where no feedback configurations are returned
   if (!configResult || configResult.length === 0) {
     throw new Error(
@@ -201,7 +200,7 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
     progress: 100,
     message: `Found: ${configName}`, // A more descriptive message for the UI
   });
-  // ✅ NEW LOGIC ENDS HERE
+
   // STEP 4: Pending feedbacks
   logs.push("4) Fetching all pending feedback forms...");
   await emit({
