@@ -1,8 +1,4 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  experimental: {
-    allowedOrigins: ['*'],
-  },
-};
+const nextConfig = {};
 
 export default nextConfig;
