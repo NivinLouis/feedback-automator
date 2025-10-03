@@ -1,8 +1,5 @@
-// File: src/app/api/automate/route.js
-
 import axios from "axios";
 
-// --- STREAM HELPERS ---
 function makeStream() {
   const ts = new TransformStream();
   const writer = ts.writable.getWriter();
@@ -14,7 +11,6 @@ function makeStream() {
   return { stream: ts.readable, writer, send };
 }
 
-// --- ERP HELPERS ---
 async function erpApiCall(path, params, sid) {
   const url = `https://erp.vidyaacademy.ac.in/web${path}`;
   const payload = { jsonrpc: "2.0", method: "call", params };
@@ -59,8 +55,7 @@ async function login(username, password) {
   }
 }
 
-// --- CORE AUTOMATION LOGIC WITH EMITS ---
-async function automateFeedback(sid, session_id, uid, logs, emit) {
+async function automateFeedback(sid, session_id, uid, logs, emit, feedbackMode, rating, facultyRatings) {
   const model = "vict.feedback.student.batch.feedback";
   const topLevelContext = { lang: "en_GB", tz: "Asia/Kolkata", uid };
   const kwArgsContext = {
@@ -70,7 +65,6 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
     search_default_group_semester: 1,
   };
 
-  // STEP 1: Batch
   logs.push("1) Fetching dynamic batch ID...");
   await emit({
     type: "status",
@@ -106,7 +100,6 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
     message: `Found ${batchName}`,
   });
 
-  // STEP 2: Semester
   logs.push("2) Fetching available semesters...");
   await emit({
     type: "status",
@@ -145,7 +138,6 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
     message: `Found ${latestSemester.semester[1]}`,
   });
 
-  // STEP 3: Config
   logs.push("3) Fetching feedback configuration...");
   await emit({
     type: "status",
@@ -176,20 +168,16 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
     sid
   );
 
-  // Handle cases where no feedback configurations are returned
   if (!configResult || configResult.length === 0) {
     throw new Error(
       "No feedback configurations found for the latest semester."
     );
   }
 
-  // Use reduce to find the configuration with the highest ID
   const latestConfig = configResult.reduce((latest, current) => {
-    // The ID is the first element (index 0) of the 'config_id' array
     return current.config_id[0] > latest.config_id[0] ? current : latest;
   });
 
-  // Extract the ID and name from the selected latest config
   const configId = latestConfig.config_id[0];
   const configName = latestConfig.config_id[1];
 
@@ -198,10 +186,9 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
     type: "status",
     step: "config",
     progress: 100,
-    message: `Found: ${configName}`, // A more descriptive message for the UI
+    message: `Found: ${configName}`,
   });
 
-  // STEP 4: Pending feedbacks
   logs.push("4) Fetching all pending feedback forms...");
   await emit({
     type: "status",
@@ -253,7 +240,20 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
     message: `Found ${feedbackRecords.length} forms`,
   });
 
-  // STEP 5: Submit loop
+  if (feedbackMode === "custom" && !facultyRatings) {
+    const faculties = feedbackRecords.map((record) => ({
+      id: record.id,
+      name: record.employeename,
+      course: Array.isArray(record.course) ? record.course[1] : "",
+    }));
+    
+    await emit({
+      type: "need_ratings",
+      faculties: faculties,
+    });
+    return { needsRatings: true, credentials: { sid, session_id, uid }, configId, gt_batch_id, semesterId };
+  }
+
   logs.push("5) Submitting feedback for each teacher...");
   await emit({
     type: "status",
@@ -285,10 +285,18 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
       );
 
       const questionIds = formDetails[0]?.questions_line || [];
+      
+      const markState = feedbackMode === "custom" 
+        ? (facultyRatings[feedbackId] || 1)
+        : rating;
+
+      const ratingLabels = { 1: "Excellent", 2: "Very Good", 3: "Good", 4: "Fair", 5: "Poor" };
+      logs.push(`       Rating: ${ratingLabels[markState] || markState}`);
+
       const answersPayload = questionIds.map((qid) => [
         1,
         qid,
-        { mark_state: 1 },
+        { mark_state: markState },
       ]);
 
       if (answersPayload.length > 0) {
@@ -338,14 +346,12 @@ async function automateFeedback(sid, session_id, uid, logs, emit) {
         step: "submit",
         message: `Error with ${record.employeename}: ${err.message}`,
       });
-      // continue to next form
     }
   }
 
-  logs.push(" All feedback submitted successfully!");
+  logs.push("✅ All feedback submitted successfully!");
 }
 
-// --- API HANDLER (streams NDJSON) ---
 export async function POST(request) {
   const { stream, writer, send } = makeStream();
   let body;
@@ -357,7 +363,7 @@ export async function POST(request) {
     });
   }
 
-  const { username, password } = body || {};
+  const { username, password, feedbackMode = "set-all", rating = 1, facultyRatings = null } = body || {};
   if (!username || !password) {
     return new Response(
       JSON.stringify({ error: "Username and password are required." }),
@@ -367,7 +373,6 @@ export async function POST(request) {
 
   const logs = [];
 
-  // Start async work and stream updates
   (async () => {
     try {
       await send({
@@ -377,7 +382,7 @@ export async function POST(request) {
         message: "Logging in...",
       });
       const credentials = await login(username, password);
-      logs.push(" Login Successful.");
+      logs.push("✓ Login Successful.");
       await send({
         type: "status",
         step: "login",
@@ -392,17 +397,24 @@ export async function POST(request) {
         await send({ ...evt, message: evt.message });
       };
 
-      await automateFeedback(
+      const result = await automateFeedback(
         credentials.sid,
         credentials.session_id,
         credentials.uid,
         logs,
-        emit
+        emit,
+        feedbackMode,
+        rating,
+        facultyRatings
       );
+
+      if (result && result.needsRatings) {
+        return;
+      }
 
       await send({ type: "done", logs });
     } catch (error) {
-      logs.push(` An error occurred: ${error.message}`);
+      logs.push(`❌ An error occurred: ${error.message}`);
       await send({ type: "error", message: error.message, logs });
     } finally {
       await writer.close();
