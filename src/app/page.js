@@ -340,11 +340,14 @@ export default function HomePage() {
                 <div className="grid gap-8 lg:grid-cols-2">
                   <div className="space-y-6">
                     {validationError && (
-                      <Alert variant="destructive" className="backdrop-blur-xl bg-red-500/10 border-red-500/30">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Login Required</AlertTitle>
-                        <AlertDescription>{validationError}</AlertDescription>
-                      </Alert>
+                      <div className="relative animate-in fade-in slide-in-from-top-4 duration-500">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-red-400 to-pink-400 rounded-2xl opacity-30 blur-xl"></div>
+                        <Alert variant="destructive" className="relative backdrop-blur-xl bg-red-500/20 border-2 border-red-400/50 shadow-lg shadow-red-500/10">
+                          <AlertCircle className="h-5 w-5" />
+                          <AlertTitle className="font-semibold text-base">Login Required</AlertTitle>
+                          <AlertDescription className="text-sm">{validationError}</AlertDescription>
+                        </Alert>
+                      </div>
                     )}
 
                     <div className="relative">
@@ -381,55 +384,86 @@ export default function HomePage() {
                           </div>
 
                           <div className="space-y-3 pt-2">
-                            <label className="text-sm font-medium text-gray-900">
+                            <label className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                              <Sparkles className="h-4 w-4 text-purple-500" />
                               Feedback Mode
                             </label>
-                            <div className="space-y-2">
-                              <label className="flex items-center gap-2 cursor-pointer">
+                            <div className="space-y-3">
+                              <label 
+                                className={`relative flex items-start gap-3 cursor-pointer p-3 rounded-lg border-2 transition-all ${
+                                  feedbackMode === "set-all" 
+                                    ? "border-blue-400 bg-blue-50/50" 
+                                    : "border-white/30 bg-white/10 hover:bg-white/20"
+                                }`}
+                              >
                                 <input
                                   type="radio"
                                   name="feedbackMode"
                                   value="set-all"
                                   checked={feedbackMode === "set-all"}
                                   onChange={(e) => setFeedbackMode(e.target.value)}
-                                  className="w-4 h-4 text-blue-600"
+                                  className="mt-0.5 w-4 h-4 text-blue-600"
                                 />
-                                <span className="text-sm text-gray-800">
-                                  Set same rating for all faculties
-                                </span>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-900 text-sm">
+                                    Set same rating for all
+                                  </div>
+                                  <div className="text-xs text-gray-600 mt-0.5">
+                                    Quick mode: Apply one rating to every faculty
+                                  </div>
+                                </div>
                               </label>
-                              <label className="flex items-center gap-2 cursor-pointer">
+                              <label 
+                                className={`relative flex items-start gap-3 cursor-pointer p-3 rounded-lg border-2 transition-all ${
+                                  feedbackMode === "custom" 
+                                    ? "border-purple-400 bg-purple-50/50" 
+                                    : "border-white/30 bg-white/10 hover:bg-white/20"
+                                }`}
+                              >
                                 <input
                                   type="radio"
                                   name="feedbackMode"
                                   value="custom"
                                   checked={feedbackMode === "custom"}
                                   onChange={(e) => setFeedbackMode(e.target.value)}
-                                  className="w-4 h-4 text-blue-600"
+                                  className="mt-0.5 w-4 h-4 text-purple-600"
                                 />
-                                <span className="text-sm text-gray-800">
-                                  Customize rating for each faculty
-                                </span>
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-900 text-sm">
+                                    Customize per faculty
+                                  </div>
+                                  <div className="text-xs text-gray-600 mt-0.5">
+                                    Choose individual ratings for each faculty member
+                                  </div>
+                                </div>
                               </label>
                             </div>
                           </div>
 
                           {feedbackMode === "set-all" && (
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium text-gray-900">
+                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                              <label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
                                 Select Rating
                               </label>
-                              <select
-                                value={selectedRating}
-                                onChange={(e) => setSelectedRating(Number(e.target.value))}
-                                className="w-full backdrop-blur-sm bg-white/30 border border-white/20 text-gray-900 rounded-md px-3 py-2 focus:bg-white/40 focus:border-white/30 transition-all"
-                              >
-                                {FEEDBACK_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="relative">
+                                <select
+                                  value={selectedRating}
+                                  onChange={(e) => setSelectedRating(Number(e.target.value))}
+                                  className="w-full backdrop-blur-sm bg-white/40 border-2 border-blue-200 text-gray-900 rounded-lg px-4 py-3 font-medium focus:bg-white/50 focus:border-blue-400 transition-all appearance-none cursor-pointer shadow-sm"
+                                >
+                                  {FEEDBACK_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
+                              </div>
                             </div>
                           )}
 
@@ -493,54 +527,79 @@ export default function HomePage() {
 
                   <div className="relative">
                     {showFacultyRatingModal ? (
-                      <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg overflow-hidden">
-                        <div className="backdrop-blur-xl bg-white/30 border-b border-white/20 px-6 py-4">
-                          <h2 className="text-gray-900 font-semibold">
-                            Customize Faculty Ratings
-                          </h2>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Select a rating for each faculty below
-                          </p>
+                      <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
+                        <div className="backdrop-blur-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-b border-white/20 px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center shadow-lg">
+                              <Sparkles className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                              <h2 className="text-gray-900 font-bold text-lg">
+                                Customize Faculty Ratings
+                              </h2>
+                              <p className="text-sm text-gray-600">
+                                Found {pendingFaculties.length} faculty members
+                              </p>
+                            </div>
+                          </div>
                         </div>
                         <div className="p-6">
-                          <ScrollArea className="h-[400px]">
-                            <div className="space-y-4">
-                              {pendingFaculties.map((faculty) => (
+                          <ScrollArea className="h-[400px] pr-4">
+                            <div className="space-y-3">
+                              {pendingFaculties.map((faculty, index) => (
                                 <div
                                   key={faculty.id}
-                                  className="backdrop-blur-sm bg-white/30 rounded-lg p-4 border border-white/20"
+                                  className="relative group"
                                 >
-                                  <div className="font-medium text-gray-900 mb-2">
-                                    {faculty.name}
+                                  <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-400 to-pink-400 rounded-xl opacity-0 group-hover:opacity-20 blur transition-opacity duration-300"></div>
+                                  <div className="relative backdrop-blur-sm bg-white/40 rounded-xl p-4 border border-white/30 hover:border-purple-300 transition-all shadow-sm hover:shadow-md">
+                                    <div className="flex items-start gap-3 mb-3">
+                                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                        {index + 1}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-semibold text-gray-900 truncate">
+                                          {faculty.name}
+                                        </div>
+                                        <div className="text-xs text-gray-600 mt-0.5 truncate">
+                                          {faculty.course}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="relative">
+                                      <select
+                                        value={facultyRatings[faculty.id] || 1}
+                                        onChange={(e) =>
+                                          setFacultyRatings({
+                                            ...facultyRatings,
+                                            [faculty.id]: Number(e.target.value),
+                                          })
+                                        }
+                                        className="w-full backdrop-blur-sm bg-white/50 border-2 border-purple-200 text-gray-900 rounded-lg px-3 py-2.5 text-sm font-medium focus:border-purple-400 focus:bg-white/60 transition-all appearance-none cursor-pointer"
+                                      >
+                                        {FEEDBACK_OPTIONS.map((option) => (
+                                          <option key={option.value} value={option.value}>
+                                            {option.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                        <svg className="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div className="text-xs text-gray-600 mb-3">
-                                    {faculty.course}
-                                  </div>
-                                  <select
-                                    value={facultyRatings[faculty.id] || 1}
-                                    onChange={(e) =>
-                                      setFacultyRatings({
-                                        ...facultyRatings,
-                                        [faculty.id]: Number(e.target.value),
-                                      })
-                                    }
-                                    className="w-full backdrop-blur-sm bg-white/30 border border-white/20 text-gray-900 rounded-md px-3 py-2 text-sm"
-                                  >
-                                    {FEEDBACK_OPTIONS.map((option) => (
-                                      <option key={option.value} value={option.value}>
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
                                 </div>
                               ))}
                             </div>
                           </ScrollArea>
-                          <div className="mt-4">
+                          <div className="mt-6 pt-4 border-t border-white/20">
                             <Button
                               onClick={handleConfirmRatings}
-                              className="w-full bg-gradient-to-r from-[#d66d75] to-[#e29587] hover:from-[#d66d75]/90 hover:to-[#e29587]/90 text-white"
+                              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 transition-all"
                             >
+                              <CheckCircle2 className="mr-2 h-5 w-5" />
                               Confirm & Continue
                             </Button>
                           </div>
