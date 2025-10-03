@@ -2,9 +2,18 @@
 
 ## Overview
 
-The Vidya Feedback Automator is a Next.js web application that automates the process of submitting feedback forms on the Vidya Academy ERP system. The application logs into the ERP, fetches pending feedback forms, and automatically marks them as excellent, streamlining what would otherwise be a manual, repetitive task for students.
+The Vidya Feedback Automator is a Next.js web application that automates the process of submitting feedback forms on the Vidya Academy ERP system. The application logs into the ERP, fetches pending feedback forms, and allows users to submit ratings (Excellent, Very Good, Good, Fair, or Poor) either uniformly for all faculties or customized per faculty, streamlining what would otherwise be a manual, repetitive task for students.
 
-The system uses a client-server architecture where the frontend provides a user interface for credential input and real-time progress tracking, while the backend handles authentication with the ERP system and processes feedback submissions through streaming responses.
+The system uses a client-server architecture where the frontend provides a user interface for credential input, feedback rating selection, and real-time progress tracking, while the backend handles authentication with the ERP system and processes feedback submissions through streaming responses.
+
+## Recent Changes
+
+**October 3, 2025** - Added feedback customization features:
+- Login validation: Users must enter credentials before starting automation (shows error alert if fields are empty)
+- Feedback mode selection: Two modes available - "Set for all" (same rating for all faculties) or "Custom per faculty" (individual ratings)
+- Rating options: Support for all five rating levels (Excellent, Very Good, Good, Fair, Poor) instead of only Excellent
+- Interactive modal: For custom mode, displays faculty list with rating dropdowns before submission
+- Enhanced logging: Shows which rating is being applied to each faculty in the automation logs
 
 ## User Preferences
 
