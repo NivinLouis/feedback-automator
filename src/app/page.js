@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   Terminal,
   AlertCircle,
@@ -30,6 +31,14 @@ const INITIAL_STEPS = [
   },
 ];
 
+const FEEDBACK_OPTIONS = [
+  { value: 1, label: "Excellent" },
+  { value: 2, label: "Very Good" },
+  { value: 3, label: "Good" },
+  { value: 4, label: "Fair" },
+  { value: 5, label: "Poor" },
+];
+
 export default function HomePage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -37,8 +46,16 @@ export default function HomePage() {
   const [logs, setLogs] = useState([]);
   const [error, setError] = useState("");
   const [steps, setSteps] = useState(INITIAL_STEPS);
-  const readerRef = useRef(null);
+  const [validationError, setValidationError] = useState("");
 
+  const [feedbackMode, setFeedbackMode] = useState("set-all");
+  const [selectedRating, setSelectedRating] = useState(1);
+
+  const [pendingFaculties, setPendingFaculties] = useState([]);
+  const [facultyRatings, setFacultyRatings] = useState({});
+  const [showFacultyRatingModal, setShowFacultyRatingModal] = useState(false);
+
+  const readerRef = useRef(null);
   const logRef = useRef(null);
   const endOfLogsRef = useRef(null);
 
@@ -51,7 +68,11 @@ export default function HomePage() {
   const resetUI = () => {
     setLogs([]);
     setError("");
+    setValidationError("");
     setSteps(INITIAL_STEPS.map((s) => ({ ...s })));
+    setPendingFaculties([]);
+    setFacultyRatings({});
+    setShowFacultyRatingModal(false);
   };
 
   const updateStep = (evt) => {
@@ -76,16 +97,77 @@ export default function HomePage() {
     );
   };
 
+  const processStream = async (reader) => {
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let evt;
+        try {
+          evt = JSON.parse(line);
+        } catch {
+          continue;
+        }
+
+        if (evt.type === "status") {
+          updateStep(evt);
+          if (evt.message) {
+            setLogs((l) => [...l, evt.message]);
+          }
+        } else if (evt.type === "log") {
+          setLogs((l) => [...l, evt.message]);
+        } else if (evt.type === "need_ratings") {
+          setPendingFaculties(evt.faculties);
+          const initialRatings = {};
+          evt.faculties.forEach((faculty) => {
+            initialRatings[faculty.id] = 1;
+          });
+          setFacultyRatings(initialRatings);
+          setShowFacultyRatingModal(true);
+          setIsLoading(false);
+        } else if (evt.type === "error") {
+          setError(evt.message || "Unknown error");
+          setIsLoading(false);
+        } else if (evt.type === "done") {
+          if (Array.isArray(evt.logs)) setLogs(evt.logs);
+          setIsLoading(false);
+        }
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!username.trim() || !password.trim()) {
+      setValidationError("Please enter both username and password before starting automation.");
+      return;
+    }
+
     resetUI();
     setIsLoading(true);
 
     try {
+      const requestBody = {
+        username,
+        password,
+        feedbackMode,
+        rating: feedbackMode === "set-all" ? selectedRating : null,
+      };
+
       const response = await fetch("/api/automate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.body) {
@@ -94,44 +176,44 @@ export default function HomePage() {
 
       const reader = response.body.getReader();
       readerRef.current = reader;
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          let evt;
-          try {
-            evt = JSON.parse(line);
-          } catch {
-            continue;
-          }
-
-          if (evt.type === "status") {
-            updateStep(evt);
-            if (evt.message) {
-              setLogs((l) => [...l, evt.message]);
-            }
-          } else if (evt.type === "log") {
-            setLogs((l) => [...l, evt.message]);
-          } else if (evt.type === "error") {
-            setError(evt.message || "Unknown error");
-            setIsLoading(false);
-          } else if (evt.type === "done") {
-            if (Array.isArray(evt.logs)) setLogs(evt.logs);
-            setIsLoading(false);
-          }
-        }
-      }
+      await processStream(reader);
     } catch (err) {
       setError(err.message || "Failed to connect to the server.");
+      setIsLoading(false);
+    } finally {
+      try {
+        await readerRef.current?.cancel();
+      } catch {}
+    }
+  };
+
+  const handleConfirmRatings = async () => {
+    setShowFacultyRatingModal(false);
+    setIsLoading(true);
+
+    try {
+      const requestBody = {
+        username,
+        password,
+        feedbackMode: "custom",
+        facultyRatings,
+      };
+
+      const response = await fetch("/api/automate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.body) {
+        throw new Error("Streaming not supported by the browser/environment.");
+      }
+
+      const reader = response.body.getReader();
+      readerRef.current = reader;
+      await processStream(reader);
+    } catch (err) {
+      setError(err.message || "Failed to submit ratings.");
       setIsLoading(false);
     } finally {
       try {
@@ -239,13 +321,10 @@ export default function HomePage() {
 
       <main className="relative flex items-center justify-center min-h-screen p-4">
         <div className="w-full max-w-6xl">
-          {/* Main liquid glass card */}
           <div className="relative">
-            {/* Glow effect */}
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-[2rem] opacity-20 blur-2xl transition-opacity duration-1000"></div>
 
             <div className="relative backdrop-blur-2xl bg-white/30 rounded-[2rem] border border-white/20 shadow-xl overflow-hidden">
-              {/* Header */}
               <div className="p-8">
                 <div className="flex flex-col items-center justify-center gap-3 text-center">
                   <div className="relative">
@@ -259,9 +338,15 @@ export default function HomePage() {
 
               <div className="p-8">
                 <div className="grid gap-8 lg:grid-cols-2">
-                  {/* Left: Form + Steps */}
                   <div className="space-y-6">
-                    {/* Login Form */}
+                    {validationError && (
+                      <Alert variant="destructive" className="backdrop-blur-xl bg-red-500/10 border-red-500/30">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Login Required</AlertTitle>
+                        <AlertDescription>{validationError}</AlertDescription>
+                      </Alert>
+                    )}
+
                     <div className="relative">
                       <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl opacity-0 blur transition-opacity duration-500"></div>
                       <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg p-6">
@@ -274,7 +359,10 @@ export default function HomePage() {
                             <Input
                               type="text"
                               value={username}
-                              onChange={(e) => setUsername(e.target.value)}
+                              onChange={(e) => {
+                                setUsername(e.target.value);
+                                setValidationError("");
+                              }}
                               placeholder="ERP Username"
                               className="backdrop-blur-sm bg-white/30 border-white/20 text-gray-900 placeholder:text-gray-500 focus:bg-white/40 focus:border-white/30 transition-all"
                             />
@@ -283,17 +371,73 @@ export default function HomePage() {
                             <Input
                               type="password"
                               value={password}
-                              onChange={(e) => setPassword(e.target.value)}
+                              onChange={(e) => {
+                                setPassword(e.target.value);
+                                setValidationError("");
+                              }}
                               placeholder="ERP Password"
                               className="backdrop-blur-sm bg-white/30 border-white/20 text-gray-900 placeholder:text-gray-500 focus:bg-white/40 focus:border-white/30 transition-all"
                             />
                           </div>
+
+                          <div className="space-y-3 pt-2">
+                            <label className="text-sm font-medium text-gray-900">
+                              Feedback Mode
+                            </label>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="feedbackMode"
+                                  value="set-all"
+                                  checked={feedbackMode === "set-all"}
+                                  onChange={(e) => setFeedbackMode(e.target.value)}
+                                  className="w-4 h-4 text-blue-600"
+                                />
+                                <span className="text-sm text-gray-800">
+                                  Set same rating for all faculties
+                                </span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="feedbackMode"
+                                  value="custom"
+                                  checked={feedbackMode === "custom"}
+                                  onChange={(e) => setFeedbackMode(e.target.value)}
+                                  className="w-4 h-4 text-blue-600"
+                                />
+                                <span className="text-sm text-gray-800">
+                                  Customize rating for each faculty
+                                </span>
+                              </label>
+                            </div>
+                          </div>
+
+                          {feedbackMode === "set-all" && (
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-gray-900">
+                                Select Rating
+                              </label>
+                              <select
+                                value={selectedRating}
+                                onChange={(e) => setSelectedRating(Number(e.target.value))}
+                                className="w-full backdrop-blur-sm bg-white/30 border border-white/20 text-gray-900 rounded-md px-3 py-2 focus:bg-white/40 focus:border-white/30 transition-all"
+                              >
+                                {FEEDBACK_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
                           <Button
                             onClick={handleSubmit}
                             className="relative w-full bg-gradient-to-r from-[#d66d75] to-[#e29587] hover:from-[#d66d75]/90 hover:to-[#e29587]/90 text-white overflow-hidden rounded-lg"
                             disabled={isLoading}
                           >
-                            {/* Shimmer overlay */}
                             <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
 
                             {isLoading ? (
@@ -309,7 +453,6 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* Progress Steps */}
                     <div className="relative">
                       <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl opacity-0 blur transition-opacity duration-500"></div>
                       <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg p-6">
@@ -330,7 +473,6 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* Error Alert */}
                     {error && (
                       <div className="relative animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="absolute -inset-0.5 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl opacity-20 blur"></div>
@@ -349,43 +491,96 @@ export default function HomePage() {
                     )}
                   </div>
 
-                  {/* Right: Logs Terminal */}
                   <div className="relative">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-2xl opacity-0 blur transition-opacity duration-500"></div>
-                    <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg overflow-hidden">
-                      <div className="backdrop-blur-xl bg-white/30 border-b border-white/20 px-6 py-4 flex items-center gap-3">
-                        <Terminal className="h-5 w-5 text-emerald-400" />
-                        <h2 className="text-gray-900 font-semibold">
-                          Automation Log
-                        </h2>
-                        <div className="ml-auto flex gap-2">
-                          <div className="h-3 w-3 rounded-full bg-red-500 shadow-lg shadow-red-500/20"></div>
-                          <div className="h-3 w-3 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/20"></div>
-                          <div className="h-3 w-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/20"></div>
+                    {showFacultyRatingModal ? (
+                      <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg overflow-hidden">
+                        <div className="backdrop-blur-xl bg-white/30 border-b border-white/20 px-6 py-4">
+                          <h2 className="text-gray-900 font-semibold">
+                            Customize Faculty Ratings
+                          </h2>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Select a rating for each faculty below
+                          </p>
+                        </div>
+                        <div className="p-6">
+                          <ScrollArea className="h-[400px]">
+                            <div className="space-y-4">
+                              {pendingFaculties.map((faculty) => (
+                                <div
+                                  key={faculty.id}
+                                  className="backdrop-blur-sm bg-white/30 rounded-lg p-4 border border-white/20"
+                                >
+                                  <div className="font-medium text-gray-900 mb-2">
+                                    {faculty.name}
+                                  </div>
+                                  <div className="text-xs text-gray-600 mb-3">
+                                    {faculty.course}
+                                  </div>
+                                  <select
+                                    value={facultyRatings[faculty.id] || 1}
+                                    onChange={(e) =>
+                                      setFacultyRatings({
+                                        ...facultyRatings,
+                                        [faculty.id]: Number(e.target.value),
+                                      })
+                                    }
+                                    className="w-full backdrop-blur-sm bg-white/30 border border-white/20 text-gray-900 rounded-md px-3 py-2 text-sm"
+                                  >
+                                    {FEEDBACK_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                          <div className="mt-4">
+                            <Button
+                              onClick={handleConfirmRatings}
+                              className="w-full bg-gradient-to-r from-[#d66d75] to-[#e29587] hover:from-[#d66d75]/90 hover:to-[#e29587]/90 text-white"
+                            >
+                              Confirm & Continue
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <div className="p-6 bg-transparent">
-                        <ScrollArea className="h-[500px]" ref={logRef}>
-                          <pre className="text-sm font-mono text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
-                            {logs.length > 0 ? (
-                              logs.join("\n")
-                            ) : (
-                              <span className="text-gray-400">
-                                $ Waiting for automation to start...
-                              </span>
-                            )}
-                          </pre>
-                          <div ref={endOfLogsRef} />
-                        </ScrollArea>
+                    ) : (
+                      <div className="relative backdrop-blur-xl bg-white/20 rounded-2xl border border-white/30 shadow-lg overflow-hidden">
+                        <div className="backdrop-blur-xl bg-white/30 border-b border-white/20 px-6 py-4 flex items-center gap-3">
+                          <Terminal className="h-5 w-5 text-emerald-400" />
+                          <h2 className="text-gray-900 font-semibold">
+                            Automation Log
+                          </h2>
+                          <div className="ml-auto flex gap-2">
+                            <div className="h-3 w-3 rounded-full bg-red-500 shadow-lg shadow-red-500/20"></div>
+                            <div className="h-3 w-3 rounded-full bg-yellow-500 shadow-lg shadow-yellow-500/20"></div>
+                            <div className="h-3 w-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/20"></div>
+                          </div>
+                        </div>
+                        <div className="p-6 bg-transparent">
+                          <ScrollArea className="h-[500px]" ref={logRef}>
+                            <pre className="text-sm font-mono text-gray-800 whitespace-pre-wrap break-words leading-relaxed">
+                              {logs.length > 0 ? (
+                                logs.join("\n")
+                              ) : (
+                                <span className="text-gray-400">
+                                  $ Waiting for automation to start...
+                                </span>
+                              )}
+                            </pre>
+                            <div ref={endOfLogsRef} />
+                          </ScrollArea>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Footer */}
           <div className="mt-8 flex justify-center">
             <div className="relative">
               <div className="absolute -inset-1 bg-gradient-to-r from-gray-600 to-gray-800 rounded-xl opacity-0 blur transition-opacity duration-300"></div>
